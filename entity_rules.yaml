@@ -1,0 +1,17 @@
+# Map recipient email addresses to entities.
+#
+# Matching rules:
+# - Compare case-insensitively.
+# - Use exact email address matches (no guessing).
+# - If multiple recipients exist, prefer the primary "To:" recipient if known.
+#
+# Populate each entry with:
+# - entity: the legal entity or operating company to assign the expense to
+# - group_name: optional roll-up group (e.g., a holding company or business unit)
+
+# Allowed entities (for overrides):
+# - Personal
+# - Yewmik Inc.
+# - RanchGlen Capital Inc.
+
+recipients: {}

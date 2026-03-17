@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local DB/artifacts
+*.sqlite
+*.db
+
+# OS
+.DS_Store

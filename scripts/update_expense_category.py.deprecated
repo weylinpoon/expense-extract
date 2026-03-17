@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""update_expense_category.py
+
+Update an expense category (and optional needs_review/review_reason) in SQLite.
+JSON-only output.
+
+Usage:
+  ./update_expense_category.py --db expenses.sqlite --expense-id <id> --category Telecom \
+    [--confidence 0.9] [--needs-review] [--review-reason low_category_confidence]
+
+Allowed categories are enforced by save_expense.py logic; this tool does not revalidate.
+"""
+
+import argparse
+import json
+import sqlite3
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--db", required=True)
+    ap.add_argument("--expense-id", required=True)
+    ap.add_argument("--category", required=True)
+    ap.add_argument("--confidence", type=float, default=None)
+    ap.add_argument("--needs-review", action="store_true")
+    ap.add_argument("--review-reason", default=None)
+    args = ap.parse_args()
+
+    con = sqlite3.connect(args.db)
+    con.execute("PRAGMA journal_mode=WAL;")
+
+    row = con.execute(
+        "SELECT raw_json FROM expenses WHERE expense_id=? LIMIT 1", (args.expense_id,)
+    ).fetchone()
+    if not row:
+        print(json.dumps({"ok": False, "error": "expense_not_found", "expense_id": args.expense_id}))
+        return
+
+    raw_text = row[0]
+    try:
+        raw = json.loads(raw_text) if raw_text else {}
+    except Exception:
+        raw = {}
+
+    # Update columns (category always; review fields optionally)
+    if args.needs_review:
+        con.execute(
+            "UPDATE expenses SET category=?, needs_review=1, review_reason=? WHERE expense_id=?",
+            (args.category, args.review_reason, args.expense_id),
+        )
+    else:
+        con.execute(
+            "UPDATE expenses SET category=? WHERE expense_id=?",
+            (args.category, args.expense_id),
+        )
+
+    raw["category"] = args.category
+    if args.confidence is not None:
+        raw["category_confidence"] = args.confidence
+    if args.needs_review:
+        raw["needs_review"] = True
+        raw["review_reason"] = args.review_reason
+
+    con.execute(
+        "UPDATE expenses SET raw_json=? WHERE expense_id=?",
+        (json.dumps(raw, ensure_ascii=False, separators=(",", ":"), sort_keys=True), args.expense_id),
+    )
+
+    con.commit()
+    con.close()
+
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "expense_id": args.expense_id,
+                "category": args.category,
+                "needs_review": bool(args.needs_review),
+                "review_reason": args.review_reason,
+                "category_confidence": args.confidence,
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

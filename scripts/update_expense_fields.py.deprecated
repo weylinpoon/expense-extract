@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""update_expense_fields.py
+
+Apply an LLM-enriched set of fields onto an existing expense record.
+
+This is intended to be used by the agent after inbox ingestion.
+It updates both table columns (when present) and raw_json.
+
+JSON-only output.
+
+Usage:
+  ./update_expense_fields.py --db expenses.sqlite --expense-id <id> \
+    --vendor "Microsoft" --vendor-normalized "Microsoft" \
+    --invoice-number G123 --expense-date 2026-01-17 \
+    --total 8.94 --currency CAD --currency-source explicit_document_currency \
+    --category Software \
+    --needs-review 0 --review-reason "" \
+    --meta '{"vendor_confidence":0.98,"total_chosen_from":"amount_due"}'
+
+Notes:
+- All args are optional except --db and --expense-id.
+- If --meta is provided, it's merged into raw_json.
+"""
+
+import argparse
+import json
+import sqlite3
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--db", required=True)
+    ap.add_argument("--expense-id", required=True)
+
+    ap.add_argument("--vendor", default=None)
+    ap.add_argument("--vendor-normalized", default=None)
+    ap.add_argument("--invoice-number", default=None)
+    ap.add_argument("--expense-date", default=None)
+    ap.add_argument("--total", default=None)
+    ap.add_argument("--currency", default=None)
+    ap.add_argument("--currency-source", default=None)
+    ap.add_argument("--category", default=None)
+
+    ap.add_argument("--entity", default=None)
+    ap.add_argument("--entity-source", default=None)
+    ap.add_argument("--entity-confidence", type=float, default=None)
+
+    ap.add_argument("--needs-review", type=int, choices=[0, 1], default=None)
+    ap.add_argument("--review-reason", default=None)
+
+    ap.add_argument("--meta", default=None, help="JSON object to merge into raw_json")
+
+    args = ap.parse_args()
+
+    con = sqlite3.connect(args.db)
+    con.execute("PRAGMA journal_mode=WAL;")
+
+    row = con.execute(
+        "SELECT raw_json FROM expenses WHERE expense_id=? LIMIT 1", (args.expense_id,)
+    ).fetchone()
+    if not row:
+        print(json.dumps({"ok": False, "error": "expense_not_found", "expense_id": args.expense_id}))
+        return
+
+    raw_text = row[0]
+    try:
+        raw = json.loads(raw_text) if raw_text else {}
+    except Exception:
+        raw = {}
+
+    cols = {r[1] for r in con.execute("PRAGMA table_info(expenses)").fetchall()}
+
+    # Build SQL update dynamically for existing columns
+    updates = {}
+    if args.vendor is not None and "vendor" in cols:
+        updates["vendor"] = args.vendor
+    if args.vendor_normalized is not None and "vendor_normalized" in cols:
+        updates["vendor_normalized"] = args.vendor_normalized
+    if args.invoice_number is not None and "invoice_number" in cols:
+        updates["invoice_number"] = args.invoice_number
+    if args.expense_date is not None and "expense_date" in cols:
+        updates["expense_date"] = args.expense_date
+    if args.total is not None and "total" in cols:
+        updates["total"] = args.total
+    if args.currency is not None and "currency" in cols:
+        updates["currency"] = args.currency
+    if args.currency_source is not None and "currency_source" in cols:
+        updates["currency_source"] = args.currency_source
+    if args.category is not None and "category" in cols:
+        updates["category"] = args.category
+
+    if args.entity is not None and "entity" in cols:
+        updates["entity"] = args.entity
+    if args.entity_source is not None and "entity_source" in cols:
+        updates["entity_source"] = args.entity_source
+    if args.entity_confidence is not None and "entity_confidence" in cols:
+        updates["entity_confidence"] = args.entity_confidence
+
+    if args.needs_review is not None and "needs_review" in cols:
+        updates["needs_review"] = args.needs_review
+    if args.review_reason is not None and "review_reason" in cols:
+        # normalize empty string to NULL
+        updates["review_reason"] = None if args.review_reason == "" else args.review_reason
+
+    if updates:
+        set_clause = ", ".join([f"{k}=?" for k in updates.keys()])
+        vals = list(updates.values()) + [args.expense_id]
+        con.execute(f"UPDATE expenses SET {set_clause} WHERE expense_id=?", vals)
+
+    # Update raw_json
+    mapping = {
+        "vendor": args.vendor,
+        "vendor_normalized": args.vendor_normalized,
+        "invoice_number": args.invoice_number,
+        "expense_date": args.expense_date,
+        "total": args.total,
+        "currency": args.currency,
+        "currency_source": args.currency_source,
+        "category": args.category,
+        "entity": args.entity,
+        "entity_source": args.entity_source,
+        "entity_confidence": args.entity_confidence,
+    }
+    for k, v in mapping.items():
+        if v is not None:
+            raw[k] = v
+
+    if args.needs_review is not None:
+        raw["needs_review"] = bool(args.needs_review)
+    if args.review_reason is not None:
+        raw["review_reason"] = None if args.review_reason == "" else args.review_reason
+
+    if args.meta:
+        try:
+            meta = json.loads(args.meta)
+            if isinstance(meta, dict):
+                raw.update(meta)
+        except Exception:
+            pass
+
+    con.execute(
+        "UPDATE expenses SET raw_json=? WHERE expense_id=?",
+        (json.dumps(raw, ensure_ascii=False, separators=(",", ":"), sort_keys=True), args.expense_id),
+    )
+
+    con.commit()
+    con.close()
+
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "expense_id": args.expense_id,
+                "updated_columns": sorted(list(updates.keys())),
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

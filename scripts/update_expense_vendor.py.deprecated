@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""update_expense_vendor.py
+
+Update vendor fields for an expense (vendor + vendor_normalized) and optionally
+vendor_confidence + needs_review/review_reason.
+
+JSON-only output.
+
+Usage:
+  ./update_expense_vendor.py --db expenses.sqlite --expense-id <id> \
+    --vendor "St. Raphael's Dental Care" --vendor-normalized "St. Raphael's Dental Care" \
+    [--confidence 0.92] [--needs-review] [--review-reason low_vendor_confidence]
+
+Notes:
+- This tool does not attempt to re-normalize; you provide both vendor and vendor_normalized.
+"""
+
+import argparse
+import json
+import sqlite3
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--db", required=True)
+    ap.add_argument("--expense-id", required=True)
+    ap.add_argument("--vendor", required=True)
+    ap.add_argument("--vendor-normalized", required=True)
+    ap.add_argument("--confidence", type=float, default=None)
+    ap.add_argument("--needs-review", action="store_true")
+    ap.add_argument("--review-reason", default=None)
+    args = ap.parse_args()
+
+    con = sqlite3.connect(args.db)
+    con.execute("PRAGMA journal_mode=WAL;")
+
+    row = con.execute(
+        "SELECT raw_json FROM expenses WHERE expense_id=? LIMIT 1", (args.expense_id,)
+    ).fetchone()
+    if not row:
+        print(json.dumps({"ok": False, "error": "expense_not_found", "expense_id": args.expense_id}))
+        return
+
+    raw_text = row[0]
+    try:
+        raw = json.loads(raw_text) if raw_text else {}
+    except Exception:
+        raw = {}
+
+    if args.needs_review:
+        con.execute(
+            """
+            UPDATE expenses
+            SET vendor=?, vendor_normalized=?, needs_review=1, review_reason=?
+            WHERE expense_id=?
+            """,
+            (args.vendor, args.vendor_normalized, args.review_reason, args.expense_id),
+        )
+    else:
+        con.execute(
+            "UPDATE expenses SET vendor=?, vendor_normalized=? WHERE expense_id=?",
+            (args.vendor, args.vendor_normalized, args.expense_id),
+        )
+
+    raw["vendor"] = args.vendor
+    raw["vendor_normalized"] = args.vendor_normalized
+    if args.confidence is not None:
+        raw["vendor_confidence"] = args.confidence
+    if args.needs_review:
+        raw["needs_review"] = True
+        raw["review_reason"] = args.review_reason
+
+    con.execute(
+        "UPDATE expenses SET raw_json=? WHERE expense_id=?",
+        (json.dumps(raw, ensure_ascii=False, separators=(",", ":"), sort_keys=True), args.expense_id),
+    )
+
+    con.commit()
+    con.close()
+
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "expense_id": args.expense_id,
+                "vendor": args.vendor,
+                "vendor_normalized": args.vendor_normalized,
+                "vendor_confidence": args.confidence,
+                "needs_review": bool(args.needs_review),
+                "review_reason": args.review_reason,
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

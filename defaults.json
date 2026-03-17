@@ -1,0 +1,60 @@
+{
+  "default_currency": "CAD",
+  "default_currency_source": "currency_symbol_and_context",
+  "flag_review_on_default_currency": true,
+
+  "allowed_currencies": ["USD", "CAD", "EUR", "GBP", "AUD", "NZD", "JPY"],
+  "allowed_currency_sources": [
+    "explicit_document_currency",
+    "currency_symbol_and_context",
+    "receipt_address",
+    "unknown"
+  ],
+
+  "allowed_entity_sources": [
+    "user_override",
+    "recipient_email_rule",
+    "vendor_rule",
+    "conversation_context",
+    "unknown"
+  ],
+
+  "default_entity": "RanchGlen Capital Inc.",
+  "default_entity_source": "conversation_context",
+  "default_entity_confidence": 0.8,
+
+  "default_category": "Uncategorized",
+  "allowed_categories": [
+    "Software",
+    "Office Supplies",
+    "Telecom",
+    "Travel",
+    "Meals",
+    "Professional Fees",
+    "Bank Charges",
+    "Government Fees",
+    "Home Office",
+    "Utilities",
+    "Uncategorized"
+  ],
+
+  "pdf_text_min_chars": 50,
+
+  "llm_category_guess_enabled": true,
+  "llm_category_guess_only_if_uncategorized": true,
+  "llm_category_review_threshold": 0.8,
+
+  "llm_vendor_guess_enabled": true,
+  "llm_vendor_guess_mode": "always",
+  "llm_vendor_review_threshold": 0.8,
+
+  "llm_field_enrichment_enabled": true,
+  "llm_field_review_threshold": 0.8,
+
+  "draft_review_reason": "needs_llm_enrichment",
+
+  "query_default_limit": 10,
+  "query_desc_max_len": 80,
+
+  "llm_total_choice_rule": "prefer_total_paid_if_equal_else_amount_due"
+}
