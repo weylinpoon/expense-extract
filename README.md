@@ -114,7 +114,6 @@ Config precedence (lowest → highest):
 2. `~/.openclaw/config/expense-extract.json` (recommended)
 3. `$EXPENSE_EXTRACT_CONFIG` (path to a JSON file)
 
-Back-compat: we also read `~/.openclaw/config/bookkeeping-expense-extractor.json` and `$BOOKKEEPING_EXPENSE_EXTRACTOR_CONFIG` if you already have them.
 
 Example override file:
 

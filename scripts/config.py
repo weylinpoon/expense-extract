@@ -11,9 +11,6 @@ Precedence (later wins):
 2) User override file (recommended): ~/.openclaw/config/expense-extract.json
 3) Optional env override: EXPENSE_EXTRACT_CONFIG=/path/to/file.json
 
-Back-compat:
-- Also supports ~/.openclaw/config/bookkeeping-expense-extractor.json
-- Also supports BOOKKEEPING_EXPENSE_EXTRACTOR_CONFIG
 
 Merge behavior:
 - Shallow dict merge (override replaces keys).
@@ -33,9 +30,6 @@ from typing import Any, Dict
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DEFAULTS_PATH = SKILL_ROOT / "defaults.json"
 DEFAULT_OVERRIDE_PATH = Path.home() / ".openclaw" / "config" / "expense-extract.json"
-BACKCOMPAT_OVERRIDE_PATH = (
-    Path.home() / ".openclaw" / "config" / "bookkeeping-expense-extractor.json"
-)
 
 
 def _read_json(path: Path) -> Dict[str, Any]:
@@ -50,24 +44,15 @@ def _resolve_override_path() -> Path | None:
 
     Precedence:
     - EXPENSE_EXTRACT_CONFIG (env)
-    - BOOKKEEPING_EXPENSE_EXTRACTOR_CONFIG (env, back-compat)
     - ~/.openclaw/config/expense-extract.json (if exists)
-    - ~/.openclaw/config/bookkeeping-expense-extractor.json (if exists, back-compat)
     """
 
     override_path = os.environ.get("EXPENSE_EXTRACT_CONFIG")
     if override_path:
         return Path(override_path).expanduser()
 
-    override_path = os.environ.get("BOOKKEEPING_EXPENSE_EXTRACTOR_CONFIG")
-    if override_path:
-        return Path(override_path).expanduser()
-
     if DEFAULT_OVERRIDE_PATH.exists():
         return DEFAULT_OVERRIDE_PATH
-
-    if BACKCOMPAT_OVERRIDE_PATH.exists():
-        return BACKCOMPAT_OVERRIDE_PATH
 
     return None
 

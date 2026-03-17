@@ -236,7 +236,6 @@ Allowed categories are **configurable**.
 - User override file (recommended): `~/.openclaw/config/expense-extract.json`
   - Any keys here override `defaults.json`.
   - You can also point to a different file with the env var `EXPENSE_EXTRACT_CONFIG`.
-  - Back-compat: we also read `~/.openclaw/config/bookkeeping-expense-extractor.json` and `BOOKKEEPING_EXPENSE_EXTRACTOR_CONFIG`.
 
 If `allowed_categories` is set, scripts will flag `invalid_category` during save if a category is outside the list.
 
