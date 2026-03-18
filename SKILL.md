@@ -239,6 +239,8 @@ Allowed categories are **configurable**.
 
 If `allowed_categories` is set, scripts will flag `invalid_category` during save if a category is outside the list.
 
+Common categories include: `Groceries`, `Meals`, `Travel`, `Telecom`, `Utilities`, `Software`.
+
 Validation is also configurable:
 - `allowed_currencies` → flags `invalid_currency`
 - `allowed_currency_sources` → flags `invalid_currency_source`
